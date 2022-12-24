@@ -49,6 +49,10 @@ module emu
     output [1:0]  VGA_SL,
     output        VGA_SCALER, // Force VGA scaler
 
+	input  [11:0] HDMI_WIDTH,
+	input  [11:0] HDMI_HEIGHT,
+	output        HDMI_FREEZE,
+
     // Use framebuffer from DDRAM (USE_FB=1 in qsf)
     // FB_FORMAT:
     //    [2:0] : 011=8bpp(palette) 100=16bpp 101=24bpp 110=32bpp
@@ -158,6 +162,7 @@ assign {FB_PAL_CLK, FB_FORCE_BLANK, FB_PAL_ADDR, FB_PAL_DOUT, FB_PAL_WR} = '0;
 
 assign VGA_F1 = 0;
 assign VGA_SCALER = 0;
+assign HDMI_FREEZE = 0;
 
 assign AUDIO_S = 0;
 assign AUDIO_MIX = 0;
@@ -218,7 +223,7 @@ wire [15:0] joystick_analog_0;
 
 wire [8:0] spinner_0;
 
-hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
+hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
   .clk_sys(clk_25),
   .HPS_BUS(HPS_BUS),
@@ -226,7 +231,6 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
   .gamma_bus(gamma_bus),
   .direct_video(direct_video),
 
-  .conf_str(CONF_STR),
   .forced_scandoubler(forced_scandoubler),
 
   .buttons(buttons),
@@ -244,7 +248,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
   .joystick_0(joystick_0),
   .joystick_1(joystick_1),
-  
+
   .joystick_analog_0(joystick_analog_0),
   .spinner_0(spinner_0)
 );
@@ -320,20 +324,18 @@ wire [5:0] OP2720;
 
 localparam mod_qbert  		= 0;
 localparam mod_qub    		= 1;
-localparam mod_mplanets    = 2;
-localparam mod_krull    = 3;
-localparam mod_curvebal = 4;
-localparam mod_tylz = 5;
-localparam mod_insector = 6;
+localparam mod_mplanets   = 2;
+localparam mod_krull      = 3;
+localparam mod_curvebal   = 4;
+localparam mod_tylz       = 5;
+localparam mod_insector   = 6;
 
 reg [7:0] mod = 255;
 always @(posedge clk_25) if (ioctl_wr & (ioctl_index==1)) mod <= ioctl_dout;
 
-
 wire [7:0] IP1710;
 wire [7:0] IP4740;
 wire [7:0] IPA1J2;
-
 
 always @(*) begin
 
@@ -401,9 +403,9 @@ always @(*) begin
         joystick_0[0],  // down
         joystick_0[3] // left
       };
-      
+
       IPA1J2 <= spinner_0[7:0];
-      
+
     end
 
     mod_krull:
@@ -526,7 +528,7 @@ mylstar_board mylstar_board
   .rom_init_address(ioctl_addr),
   .rom_init_data(ioctl_dout),
   .rom_index(ioctl_index),
-  
+
   .vflip(status[11]),
   .hflip(1'b0)
 );
@@ -558,6 +560,11 @@ end
 
 wire rotate_ccw = ~status[11];
 wire no_rotate = status[5] | (mod==mod_tylz) | (mod==mod_insector) | direct_video;
+wire video_rotated;
+wire flip;
+
+assign flip = status[11];
+
 //wire scandoubler = (status[17:15] || forced_scandoubler);
 screen_rotate screen_rotate (.*);
 
